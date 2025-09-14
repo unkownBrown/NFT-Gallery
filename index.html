@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFT Gallery - Mode Otomatis</title>
+    <!-- Menggunakan Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .language-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+        .language-switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #4F46E5;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider:before {
+            transform: translateX(30px);
+        }
+        .nft-card {
+            transition: all 0.3s ease;
+        }
+        .nft-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+        }
+        /* Animasi untuk loading */
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .pulse {
+            animation: pulse 1.5s infinite;
+        }
+        /* Transisi halus untuk perubahan tema */
+        body, .bg-white, .bg-gray-800, .text-gray-800, .text-gray-100 {
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+    </style>
+    <!-- NFT Gallery — Demo menggunakan API OpenSea/Reservoir. Tidak menyimpan data di blockchain, hanya fetch data publik. -->
+</head>
+<body class="bg-white text-gray-800 min-h-screen" id="body">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header dengan toggle bahasa dan indikator tema -->
+        <header class="text-center mb-8">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-3xl font-bold text-indigo-700 dark:text-indigo-400" id="headerTitle">NFT Gallery</h1>
+                <div class="flex items-center space-x-4">
+                    <!-- Indikator tema otomatis -->
+                    <div class="flex items-center px-3 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor" id="themeIcon">
+                            <path id="themeIconPath" fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 01-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd" />
+                        </svg>
+                        <span id="themeText">Auto</span>
+                    </div>
+                    <!-- Toggle Bahasa -->
+                    <div class="flex items-center">
+                        <span class="mr-2 text-sm font-medium text-indigo-700 dark:text-indigo-300" id="idLabel">ID</span>
+                        <label class="language-switch">
+                            <input type="checkbox" id="languageToggle">
+                            <span class="slider"></span>
+                        </label>
+                        <span class="ml-2 text-sm font-medium text-indigo-700 dark:text-indigo-300" id="enLabel">EN</span>
+                    </div>
+                </div>
+            </div>
+            <p class="text-gray-600 dark:text-gray-300" id="headerSubtitle">Lihat koleksi NFT dari alamat wallet Ethereum</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2" id="themeInfo">Tema otomatis sesuai waktu lokal Anda</p>
+        </header>
+
+        <!-- Input Section -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8">
+            <div class="flex flex-col md:flex-row gap-4 items-center">
+                <input 
+                    type="text" 
+                    id="walletAddress" 
+                    placeholder="Masukkan alamat wallet Ethereum" 
+                    class="flex-grow px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                    value="0x4c04f8381f7c2e115cf8e8a7d3d631d8cb6f5e3a"
+                >
+                <button 
+                    id="loadNftsBtn" 
+                    class="px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors w-full md:w-auto flex items-center justify-center"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                    </svg>
+                    <span id="loadButtonText">Load NFTs</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Loading State (awalnya tersembunyi) -->
+        <div id="loading" class="hidden text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mb-4"></div>
+            <p class="text-gray-600 dark:text-gray-300" id="loadingText">Loading NFTs...</p>
+        </div>
+
+        <!-- Error Message (awalnya tersembunyi) -->
+        <div id="errorMessage" class="hidden bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded-lg mb-8 text-center"></div>
+
+        <!-- NFT Grid -->
+        <div id="nftGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <!-- NFT akan ditampilkan di sini melalui JavaScript -->
+        </div>
+
+        <!-- No NFTs Message (awalnya tersembunyi) -->
+        <div id="noNftsMessage" class="hidden text-center py-12">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p class="text-gray-600 dark:text-gray-300 text-xl" id="noNftsText">No NFTs found</p>
+        </div>
+
+        <!-- Footer dengan info waktu lokal -->
+        <footer class="mt-12 text-center text-sm text-gray-500 dark:text-gray-400">
+            <p id="localTime">Waktu lokal Anda: <span id="timeDisplay"></span></p>
+            <p class="mt-2">NFT Gallery — Mode otomatis berdasarkan waktu lokal browser Anda</p>
+        </footer>
+    </div>
+
+    <script>
+        // Data terjemahan untuk dua bahasa
+        const translations = {
+            id: {
+                headerTitle: "NFT Gallery",
+                headerSubtitle: "Lihat koleksi NFT dari alamat wallet Ethereum",
+                walletPlaceholder: "Masukkan alamat wallet Ethereum",
+                loadButton: "Load NFTs",
+                loadingText: "Memuat NFT...",
+                noNftsText: "Tidak ada NFT yang ditemukan",
+                errorInvalidAddress: "Format alamat wallet tidak valid",
+                errorNoAddress: "Masukkan alamat wallet Ethereum",
+                errorApi: "Gagal memuat NFT:",
+                idLabel: "ID",
+                enLabel: "EN",
+                themeInfo: "Tema otomatis sesuai waktu lokal Anda",
+                localTime: "Waktu lokal Anda:",
+                dayTheme: "Siang",
+                nightTheme: "Malam"
+            },
+            en: {
+                headerTitle: "NFT Gallery",
+                headerSubtitle: "View NFT collections from an Ethereum wallet address",
+                walletPlaceholder: "Enter Ethereum wallet address",
+                loadButton: "Load NFTs",
+                loadingText: "Loading NFTs...",
+                noNftsText: "No NFTs found",
+                errorInvalidAddress: "Invalid wallet address format",
+                errorNoAddress: "Please enter an Ethereum wallet address",
+                errorApi: "Failed to load NFTs:",
+                idLabel: "ID",
+                enLabel: "EN",
+                themeInfo: "Auto theme based on your local time",
+                localTime: "Your local time:",
+                dayTheme: "Day",
+                nightTheme: "Night"
+            }
+        };
+
+        // Variabel untuk bahasa saat ini
+        let currentLanguage = 'id';
+        // Variabel untuk tema saat ini
+        let currentTheme = 'light';
+
+        // Fungsi untuk mengatur tema berdasarkan waktu lokal
+        function setThemeBasedOnTime() {
+            const date = new Date();
+            const hour = date.getHours();
+            
+            // Update tampilan waktu lokal
+            const timeDisplay = document.getElementById('timeDisplay');
+            timeDisplay.textContent = date.toLocaleTimeString();
+            
+            // Jika antara jam 18:00 (6 sore) hingga 06:00 (6 pagi), gunakan mode malam
+            if (hour >= 18 || hour < 6) {
+                enableDarkMode();
+            } else {
+                enableLightMode();
+            }
+            
+            // Perbarui teks tema
+            const themeText = document.getElementById('themeText');
+            themeText.textContent = currentLanguage === 'id' ? 
+                (currentTheme === 'dark' ? translations.id.nightTheme : translations.id.dayTheme) : 
+                (currentTheme === 'dark' ? translations.en.nightTheme : translations.en.dayTheme);
+        }
+
+        // Fungsi untuk mengaktifkan mode malam
+        function enableDarkMode() {
+            document.body.classList.add('bg-gray-900', 'text-gray-100');
+            document.body.classList.remove('bg-white', 'text-gray-800');
+            document.getElementById('body').classList.add('dark');
+            currentTheme = 'dark';
+            
+            // Update icon tema
+            const themeIcon = document.getElementById('themeIconPath');
+            themeIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />`;
+        }
+
+        // Fungsi untuk mengaktifkan mode siang
+        function enableLightMode() {
+            document.body.classList.remove('bg-gray-900', 'text-gray-100');
+            document.body.classList.add('bg-white', 'text-gray-800');
+            document.getElementById('body').classList.remove('dark');
+            currentTheme = 'light';
+            
+            // Update icon tema
+            const themeIcon = document.getElementById('themeIconPath');
+            themeIcon.innerHTML = `<path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 01-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd" />`;
+        }
+
+        // Fungsi untuk mengubah bahasa
+        function setLanguage(lang) {
+            currentLanguage = lang;
+            
+            // Perbarui semua teks dengan terjemahan yang sesuai
+            document.getElementById('headerTitle').textContent = translations[lang].headerTitle;
+            document.getElementById('headerSubtitle').textContent = translations[lang].headerSubtitle;
+            document.getElementById('walletAddress').placeholder = translations[lang].walletPlaceholder;
+            document.getElementById('loadButtonText').textContent = translations[lang].loadButton;
+            document.getElementById('loadingText').textContent = translations[lang].loadingText;
+            document.getElementById('noNftsText').textContent = translations[lang].noNftsText;
+            document.getElementById('idLabel').textContent = translations[lang].idLabel;
+            document.getElementById('enLabel').textContent = translations[lang].enLabel;
+            document.getElementById('themeInfo').textContent = translations[lang].themeInfo;
+            document.getElementById('localTime').textContent = translations[lang].localTime;
+            
+            // Perbarui teks tema
+            const themeText = document.getElementById('themeText');
+            themeText.textContent = currentTheme === 'dark' ? 
+                translations[lang].nightTheme : 
+                translations[lang].dayTheme;
+            
+            // Perbarui teks error jika sedang ditampilkan
+            const errorElement = document.getElementById('errorMessage');
+            if (!errorElement.classList.contains('hidden')) {
+                const errorText = errorElement.textContent;
+                // Coba terjemahkan pesan error umum
+                if (errorText.includes('Format alamat wallet tidak valid') || errorText.includes('Invalid wallet address format')) {
+                    errorElement.textContent = translations[lang].errorInvalidAddress;
+                } else if (errorText.includes('Masukkan alamat wallet Ethereum') || errorText.includes('Please enter an Ethereum wallet address')) {
+                    errorElement.textContent = translations[lang].errorNoAddress;
+                } else if (errorText.includes('Gagal memuat NFT') || errorText.includes('Failed to load NFTs')) {
+                    const errorDetail = errorText.split(':')[1] || '';
+                    errorElement.textContent = `${translations[lang].errorApi}${errorDetail}`;
+                }
+            }
+        }
+
+        // Fungsi utama ketika halaman dimuat
+        document.addEventListener('DOMContentLoaded', () => {
+            const walletInput = document.getElementById('walletAddress');
+            const loadButton = document.getElementById('loadNftsBtn');
+            const nftGrid = document.getElementById('nftGrid');
+            const loadingElement = document.getElementById('loading');
+            const noNftsMessage = document.getElementById('noNftsMessage');
+            const errorMessage = document.getElementById('errorMessage');
+            const languageToggle = document.getElementById('languageToggle');
+            
+            // Atur tema berdasarkan waktu lokal
+            setThemeBasedOnTime();
+            
+            // Perbarui waktu setiap menit
+            setInterval(setThemeBasedOnTime, 60000);
+            
+            // Setup toggle bahasa
+            languageToggle.addEventListener('change', () => {
+                setLanguage(languageToggle.checked ? 'en' : 'id');
+            });
+            
+            // Set bahasa awal
+            setLanguage('id');
+            
+            // Fungsi untuk memotong alamat wallet agar lebih pendek
+            function shortenAddress(address) {
+                if (!address) return '';
+                return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+            }
+            
+            // Fungsi untuk memuat NFT dari API
+            async function loadNFTs() {
+                const walletAddress = walletInput.value.trim();
+                
+                // Validasi input
+                if (!walletAddress) {
+                    showError(translations[currentLanguage].errorNoAddress);
+                    return;
+                }
+                
+                // Validasi format alamat Ethereum (sederhana)
+                if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+                    showError(translations[currentLanguage].errorInvalidAddress);
+                    return;
+                }
+                
+                // Tampilkan loading state
+                showLoading(true);
+                hideError();
+                hideNoNFTs();
+                
+                try {
+                    // Gunakan Reservoir API untuk mengambil data NFT
+                    const response = await fetch(`https://api.reservoir.tools/users/${walletAddress}/tokens?limit=100`);
+                    
+                    if (!response.ok) {
+                        if (response.status === 404 || response.status === 400) {
+                            // Jika 404/400, coba endpoint alternatif
+                            const altResponse = await fetch(`https://api.reservoir.tools/tokens/v5?owner=${walletAddress}&limit=100`);
+                            
+                            if (!altResponse.ok) {
+                                throw new Error(`${translations[currentLanguage].errorApi} ${altResponse.status} ${altResponse.statusText}`);
+                            }
+                            
+                            const altData = await altResponse.json();
+                            
+                            // Sembunyikan loading state
+                            showLoading(false);
+                            
+                            // Periksa jika ada NFT
+                            if (altData.tokens && altData.tokens.length > 0) {
+                                displayNFTs(altData.tokens, walletAddress);
+                            } else {
+                                showNoNFTs();
+                            }
+                            return;
+                        }
+                        throw new Error(`${translations[currentLanguage].errorApi} ${response.status} ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Sembunyikan loading state
+                    showLoading(false);
+                    
+                    // Periksa jika ada NFT
+                    if (data.tokens && data.tokens.length > 0) {
+                        displayNFTs(data.tokens, walletAddress);
+                    } else {
+                        showNoNFTs();
+                    }
+                } catch (error) {
+                    console.error('Error fetching NFTs:', error);
+                    showLoading(false);
+                    showError(error.message);
+                }
+            }
+            
+            // Fungsi untuk menampilkan NFT di grid
+            function displayNFTs(tokens, walletAddress) {
+                nftGrid.innerHTML = ''; // Kosongkan grid
+                
+                tokens.forEach(token => {
+                    const nftCard = document.createElement('div');
+                    nftCard.className = 'bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden nft-card';
+                    
+                    // Gunakan gambar NFT, fallback ke gambar placeholder jika tidak ada
+                    const imageUrl = token.token?.image || 
+                                    (token.token?.collection?.imageUrl || 
+                                    'https://via.placeholder.com/300x300?text=No+Image');
+                    
+                    // Gunakan nama NFT, fallback ke nama collection atau token ID
+                    const tokenName = token.token?.name || 
+                                    (token.token?.collection?.name || 
+                                    `Token #${token.token?.tokenId || 'Unknown'}`);
+                    
+                    // Gunakan nama collection
+                    const collectionName = token.token?.collection?.name || 'Unknown Collection';
+                    
+                    nftCard.innerHTML = `
+                        <img 
+                            src="${imageUrl}" 
+                            alt="${tokenName}" 
+                            class="w-full h-48 object-cover"
+                            onerror="this.src='https://via.placeholder.com/300x300?text=Image+Not+Found'"
+                        >
+                        <div class="p-4">
+                            <h3 class="font-semibold text-lg truncate dark:text-white" title="${tokenName}">${tokenName}</h3>
+                            <p class="text-gray-600 dark:text-gray-300 truncate" title="${collectionName}">${collectionName}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">${shortenAddress(walletAddress)}</p>
+                        </div>
+                    `;
+                    
+                    nftGrid.appendChild(nftCard);
+                });
+            }
+            
+            // Fungsi untuk menampilkan pesan loading
+            function showLoading(show) {
+                if (show) {
+                    loadingElement.classList.remove('hidden');
+                } else {
+                    loadingElement.classList.add('hidden');
+                }
+            }
+            
+            // Fungsi untuk menampilkan pesan error
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorMessage.classList.remove('hidden');
+            }
+            
+            // Fungsi untuk menyembunyikan pesan error
+            function hideError() {
+                errorMessage.classList.add('hidden');
+            }
+            
+            // Fungsi untuk menampilkan pesan tidak ada NFT
+            function showNoNFTs() {
+                noNftsMessage.classList.remove('hidden');
+            }
+            
+            // Fungsi untuk menyembunyikan pesan tidak ada NFT
+            function hideNoNFTs() {
+                noNftsMessage.classList.add('hidden');
+            }
+            
+            // Event listener untuk tombol load NFTs
+            loadButton.addEventListener('click', loadNFTs);
+            
+            // Event listener untuk menekan Enter di input field
+            walletInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    loadNFTs();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
